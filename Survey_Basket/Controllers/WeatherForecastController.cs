@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.Mvc;
-
 namespace Survey_Basket.Controllers
 {
 	[ApiController]

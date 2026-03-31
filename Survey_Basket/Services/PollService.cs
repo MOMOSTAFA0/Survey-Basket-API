@@ -1,53 +1,102 @@
-﻿using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
-using Survey_Basket.Model;
-using System.Collections.Immutable;
+﻿using Survey_Basket.Contracts.Polls;
+using Survey_Basket.Contracts.Requests;
 
 namespace Survey_Basket.Services
 {
 	public class PollService : IPollService
 	{
-		static List<Poll> pollList = new List<Poll>
-	   {
-		   new Poll(1,"kfkfkfk kfkffkkl","Law1"),
-	       new Poll(2,"kfkfkfk kfkffkkl","Law2"),
+		private readonly ApplicationDbContext _context;
+		private readonly INotefecationService _notefecationService;
 
-	   };
-
-		public Poll CreatPoll(Poll poll)
+		public PollService(ApplicationDbContext context, INotefecationService notefecationService)
 		{
-			poll._id =pollList.Count+1;
-			pollList.Add(poll);
-			return poll;
+			_context = context;
+			_notefecationService = notefecationService;
 		}
 
-		public bool DeletePoll(int id)
+		public async Task<Result<PollResponse>> CreatPollAsync(PollRequest request, CancellationToken cancellationToken = default)
 		{
-			Poll Poll= pollList.FirstOrDefault(p=>p._id==id)!;
-            if (Poll!=null)
-            {
-				pollList.Remove(Poll);
-				return true;
-            }
-			return false;
-        }
+			var IsExisting = await _context.polls.AnyAsync(x => x.Title == request.Title);
+			if (IsExisting)
+				return Result.Failure<PollResponse>(PollsErrors.DublicatedTitle);
 
-		public IEnumerable<Poll> GetAll()=> pollList;
+			await _context.polls.AddAsync(request.Adapt<Poll>(), cancellationToken);
+			var effectedRows = await _context.SaveChangesAsync(cancellationToken);
+			return effectedRows > 0
+				? Result.Success(request.Adapt<PollResponse>()) : Result.Failure<PollResponse>(PollsErrors.InvalidData);
+		}
 
-		public Poll GetById(int id) => pollList.FirstOrDefault(p => p._id == id);
-
-		public bool UpdatePoll(int id,Poll poll)
+		public async Task<Result> DeletePollAsync(int id, CancellationToken cancellationToken = default)
 		{
-			var updatablePoll = pollList.FirstOrDefault(p => p._id == id);
-			bool Poll = updatablePoll != null ? true : false;
-			
-			if (Poll)
+			var poll = await _context.polls.FindAsync(id, cancellationToken);
+			if (poll is null)
+				return Result.Failure(PollsErrors.NotFound);
+
+			_context.Remove(poll);
+			await _context.SaveChangesAsync(cancellationToken);
+			return Result.Success();
+		}
+
+		public async Task<Result<IEnumerable<PollResponse>>> GetAllAsync(CancellationToken cancellationToken = default)
+		{
+			var polls = await _context.polls.AsNoTracking()
+										   .Select(P => new PollResponse(P.Id, P.Title, P.Summary, P.IsPublished, P.StartAt, P.EndAt))
+										   .ToListAsync(cancellationToken);
+
+			return polls is not null
+				? Result.Success<IEnumerable<PollResponse>>(polls)
+				: Result.Failure<IEnumerable<PollResponse>>(PollsErrors.Empty);
+		}
+
+		public async Task<Result<IEnumerable<PollResponse>>> GetCurrentAsync(CancellationToken cancellationToken = default)
+		{
+			var polls = await _context.polls.Where(P => P.IsPublished == true
+														&& P.StartAt <= DateOnly.FromDateTime(DateTime.UtcNow)
+														&& P.EndAt >= DateOnly.FromDateTime(DateTime.UtcNow))
+										   .AsNoTracking()
+										   .Select(P => new PollResponse(P.Id, P.Title, P.Summary, P.IsPublished, P.StartAt, P.EndAt))
+										   .ToListAsync(cancellationToken);
+
+			return polls is not null
+				? Result.Success<IEnumerable<PollResponse>>(polls)
+				: Result.Failure<IEnumerable<PollResponse>>(PollsErrors.Empty);
+		}
+		public async Task<Result<PollResponse>> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+		{
+			var poll = await _context.polls.FindAsync(id, cancellationToken);
+			return poll is not null
+				? Result.Success(poll.Adapt<PollResponse>())
+				: Result.Failure<PollResponse>(PollsErrors.NotFound);
+		}
+
+		public async Task<Result> TogglePublishStatusAsync(int id, CancellationToken cancellationToken = default)
+		{
+			var poll = await _context.polls.FindAsync(id, cancellationToken);
+			if (poll is null)
+				return Result.Failure(PollsErrors.NotFound);
+			poll.IsPublished = !poll.IsPublished;
+			await _context.SaveChangesAsync(cancellationToken);
+
+			if (poll.IsPublished)
 			{
-				pollList[id-1]._title = poll._title;	
-				pollList[id-1]._discreotion = poll._discreotion;	
-				return true;
+				BackgroundJob.Enqueue(() => _notefecationService.SendPollNotificationsAsync(poll.Id));
 			}
-			return false;
+			return Result.Success();
+		}
+
+		public async Task<Result> UpdatePollAsync(int id, PollRequest request, CancellationToken cancellationToken = default)
+		{
+			var currentPoll = await _context.polls.FindAsync(id, cancellationToken);
+			if (currentPoll is null)
+				return Result.Failure(PollsErrors.NotFound);
+
+			var isDuplicatedTitle = await _context.polls.AnyAsync(x => x.Title == request.Title && x.Id != id, cancellationToken);
+			if (isDuplicatedTitle)
+				return Result.Failure<PollResponse>(PollsErrors.DublicatedTitle);
+
+			currentPoll = request.Adapt(currentPoll);
+			await _context.SaveChangesAsync(cancellationToken);
+			return Result.Success();
 		}
 
 	}

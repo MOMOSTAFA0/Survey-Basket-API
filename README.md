@@ -4,6 +4,8 @@ Survey Basket API is a production-style backend system built using ASP.NET Core 
 ## 📌 Purpose
 This project was built to apply backend engineering concepts and simulate real-world production scenarios including authentication, scalability, and maintainable architecture.
 
+<img width="1537" height="925" alt="image" src="https://github.com/user-attachments/assets/a424200f-eccb-4de9-9b32-cc834d598c19" />
+
 ## 🚀 Features
 - JWT Authentication & Refresh Tokens
 - Role-based Authorization (Roles & Permissions)

@@ -20,6 +20,9 @@ This project was built to apply backend engineering concepts and simulate real-w
 - Separation of Concerns
 - DTOs & Mapping
 - Modular structure (Polls, Questions, Votes, Results, Users, Roles)
+  
+<img width="1107" height="849" alt="image" src="https://github.com/user-attachments/assets/06d88712-a968-4642-a321-832889c30093" />
+
 
 ## ⚙️ Technical Highlights
 - Background Jobs
@@ -35,7 +38,6 @@ This project was built to apply backend engineering concepts and simulate real-w
 - Entity Framework Core
 - SQL Server
 - Swagger / OpenAPI
-
 
 
 ## ▶️ Getting Started

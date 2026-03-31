@@ -1,7 +1,4 @@
-# Survey-Basket-API
-Survey Basket API is a system designed to simplify the process of creating and managing surveys. It allows users to design surveys, share them, collect responses, and gain insights from the results, all in a structured and efficient workflow.
 # Survey Basket API
-
 Survey Basket API is a production-style backend system built using ASP.NET Core Web API. It provides a complete solution for creating, managing, and analyzing surveys.
 
 ## 🚀 Features
